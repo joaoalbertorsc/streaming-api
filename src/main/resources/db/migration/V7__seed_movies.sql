@@ -1,0 +1,25 @@
+-- Seed catalog data for development and testing. Titles, synopses and cast are invented
+-- for this practice project. UUIDs are fixed so integration tests can reference specific
+-- movies by a known ID without querying for them first.
+
+INSERT INTO movie (id, title, genre, synopsis, release_year, cast_members, duration_minutes, classification, minimum_plan) VALUES
+('10000000-0000-0000-0000-000000000001', 'The Quiet Orchard', 'Drama', 'A retired teacher rediscovers purpose when she takes in a stray dog and an estranged grandson for the summer.', 2021, 'Elena Marsh, Tobias Reyes', 104, 'L', 'BASIC'),
+('10000000-0000-0000-0000-000000000002', 'Pepper and Finn', 'Animation', 'Two mismatched kitchen gadgets go on a wild adventure to save their favorite bakery from closing.', 2019, 'Voice cast: Mia Dunlop, Carter Voss', 88, 'L', 'BASIC'),
+('10000000-0000-0000-0000-000000000003', 'Northbound', 'Adventure', 'A group of friends bikes across an unfamiliar coastline, learning more about themselves than the map ever showed.', 2020, 'Priya Anand, Leif Solberg', 96, 'L', 'BASIC'),
+('10000000-0000-0000-0000-000000000004', 'The Cartographer''s Daughter', 'Family', 'A young girl inherits her late father''s hand-drawn maps and sets out to find the places only he could see.', 2022, 'Noa Bergström, Idris Kamau', 99, 'TEN', 'BASIC'),
+('10000000-0000-0000-0000-000000000005', 'Static Lines', 'Sci-Fi', 'In a near-future town, a radio operator intercepts signals that shouldn''t exist.', 2018, 'Jonas Albrecht, Wren Castillo', 112, 'TEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000006', 'Harbor Lights', 'Drama', 'Three siblings reunite at their childhood home to decide the fate of their father''s failing shipyard.', 2017, 'Marisol Feld, Owen Pryce', 118, 'TWELVE', 'STANDARD'),
+('10000000-0000-0000-0000-000000000007', 'The Long Table', 'Comedy', 'A chaotic family dinner spirals into a night neither the hosts nor the guests will forget.', 2023, 'Renata Oyelaran, Finn Castellano', 101, 'TWELVE', 'BASIC'),
+('10000000-0000-0000-0000-000000000008', 'Switchback', 'Thriller', 'A mountain guide must get a group of stranded hikers down before a storm cuts off every route.', 2021, 'Saoirse Vance, Dmitri Okafor', 106, 'FOURTEEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000009', 'The Understudy', 'Drama', 'A second-chair violinist is thrust into the spotlight the night of the orchestra''s biggest performance.', 2016, 'Yara Lindqvist, Mateo Ferreira', 109, 'FOURTEEN', 'BASIC'),
+('10000000-0000-0000-0000-000000000010', 'Glass Houses', 'Mystery', 'A detective investigates a death in a gated community where everyone has something to hide.', 2020, 'Abena Mensah, Victor Rask', 114, 'FOURTEEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000011', 'Combat Season', 'Action', 'A disbanded unit reunites for one last job that none of them can afford to lose.', 2019, 'Khalil Osei, Brenna Maguire', 121, 'SIXTEEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000012', 'Afterparty', 'Thriller', 'What starts as a harmless reunion party unravels into a night of old secrets and new threats.', 2022, 'Lucia Varga, Soren Dahl', 103, 'SIXTEEN', 'PREMIUM'),
+('10000000-0000-0000-0000-000000000013', 'Red Ledger', 'Crime', 'An accountant discovers the books she''s been keeping belong to more than one family business.', 2018, 'Ines Caldeira, Marcus Thorn', 116, 'SIXTEEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000014', 'The Negotiator''s Room', 'Thriller', 'A hostage negotiator faces her toughest case yet when the person on the line turns out to be family.', 2021, 'Zuri Adeyemi, Hollis Bramwell', 110, 'SIXTEEN', 'PREMIUM'),
+('10000000-0000-0000-0000-000000000015', 'Nightshift at the Aurelia', 'Horror', 'A hotel''s new night porter starts noticing the guest registry doesn''t match who''s actually checking in.', 2023, 'Freya Lindqvist, Tomas Okonkwo', 97, 'EIGHTEEN', 'PREMIUM'),
+('10000000-0000-0000-0000-000000000016', 'Blood and Ledger Lines', 'Crime', 'A music producer''s empire collapses after a single leaked recording exposes decades of buried crimes.', 2020, 'Darius Webb, Camila Seabra', 124, 'EIGHTEEN', 'PREMIUM'),
+('10000000-0000-0000-0000-000000000017', 'The Last Toll Road', 'Drama', 'Two estranged truckers share one final overnight route and the conversation they''ve avoided for years.', 2017, 'Elton Mbeki, Ingrid Vasara', 108, 'EIGHTEEN', 'STANDARD'),
+('10000000-0000-0000-0000-000000000018', 'Severed Signal', 'Sci-Fi', 'A deep-space technician realizes the AI keeping the crew alive has started making its own decisions.', 2022, 'Yusuf Adetayo, Nadia Kalinowski', 119, 'EIGHTEEN', 'PREMIUM'),
+('10000000-0000-0000-0000-000000000019', 'Paper Lanterns', 'Romance', 'A letter mistakenly delivered across town sparks a correspondence neither sender expected to need.', 2019, 'Haruto Weiss, Alondra Kiprop', 102, 'TWELVE', 'BASIC'),
+('10000000-0000-0000-0000-000000000020', 'The Understudy''s Encore', 'Drama', 'Years after leaving the stage, a former performer is asked to mentor the student who replaced her.', 2024, 'Yara Lindqvist, Petra Osei', 107, 'TEN', 'PREMIUM');
