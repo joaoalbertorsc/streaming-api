@@ -1,0 +1,3 @@
+-- Placeholder migration.
+-- Tables will be added incrementally, one per entity, as each is implemented via TDD
+-- (see streaming-api-plan.md, sections 2 and 5).
