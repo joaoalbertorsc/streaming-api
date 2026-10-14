@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Arquitetura, modelo de domínio, regras de acesso e testes da Streaming API, um projeto Spring Boot de prática.">
+<title>Arquitetura da Streaming API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* Layout: a dark "screening room" — projector-lit hero, then full-width bands, each with one custom-drawn figure.
+     Deliberately single-theme (dark), so every color is set explicitly. */
+  :root {
+    color-scheme: dark;
+    --ink: #0a0e1a;          /* page */
+    --panel: #111729;        /* raised surfaces */
+    --panel-2: #172036;
+    --rule: #24304d;
+    --text: #edf0f7;
+    --dim: #97a1b8;
+    --faint: #5f6a85;
+    --lamp: #ffb547;         /* projector amber: the one accent */
+    --lamp-glow: rgba(255, 181, 71, .16);
+    --ok: #4fd1b5;           /* semantic: allowed / FK */
+    --no: #ff7a7a;           /* semantic: blocked */
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+    /* ClassInd (Brazilian age rating) colors */
+    --r-L: #0c9447; --r-10: #0f7dc2; --r-12: #e8b400; --r-14: #e67824; --r-16: #db2827; --r-18: #16120f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 15.5px/1.6 var(--body); }
+  a { color: var(--lamp); }
+  code, .mono { font-family: var(--mono); }
+  :focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--rule); }
+  .hero::before { /* projector beam */
+    content: ""; position: absolute; inset: -40% -10% auto auto; width: 75%; height: 160%;
+    background: radial-gradient(ellipse at 85% 10%, var(--lamp-glow), transparent 62%);
+    pointer-events: none;
+  }
+  .strip { /* film perforations */
+    height: 18px; background:
+      radial-gradient(circle at 9px 9px, var(--ink) 3.5px, transparent 4px) 0 0 / 26px 18px,
+      #1b2440;
+    border-bottom: 1px solid var(--rule);
+  }
+  .hero .wrap { position: relative; padding-block: 64px 56px; display: grid; gap: 22px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lamp); }
+  h1 { margin: 0; font: 800 clamp(44px, 8.5vw, 104px)/.92 var(--display); letter-spacing: -.03em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--lamp); }
+  .lede { margin: 0; max-width: 62ch; font-size: 17.5px; color: var(--dim); }
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; margin-top: 14px; }
+  .stat { background: var(--panel); padding: 16px 18px; display: grid; gap: 2px; }
+  .stat b { font: 700 30px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12.5px; color: var(--dim); }
+  .stack { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: 500 12px/1 var(--mono); padding: 7px 10px; border: 1px solid var(--rule); border-radius: 6px; color: var(--dim); background: rgba(17, 23, 41, .7); }
+
+  /* ---------- Sections ---------- */
+  section.band { border-bottom: 1px solid var(--rule); }
+  section.band > .wrap { padding-block: 72px; display: grid; gap: 28px; }
+  .head { display: grid; gap: 10px; max-width: 70ch; }
+  .kicker { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+  h2 { margin: 0; font: 700 clamp(28px, 4vw, 40px)/1.08 var(--display); letter-spacing: -.02em; text-wrap: balance; }
+  .head p { margin: 0; color: var(--dim); }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+  .pipeline::before { /* rail */
+    content: ""; position: absolute; left: 4%; right: 4%; top: 27px; height: 2px;
+    background: linear-gradient(90deg, var(--rule), var(--lamp) 50%, var(--rule));
+  }
+  .pulse { position: absolute; top: 22px; left: 4%; width: 12px; height: 12px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 16px var(--lamp); animation: travel 5s ease-in-out infinite; }
+  @keyframes travel { 0% { left: 4%; opacity: 0 } 8% { opacity: 1 } 88% { opacity: 1 } 100% { left: calc(96% - 12px); opacity: 0 } }
+  .stage { position: relative; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .stage .num { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); border: 2px solid var(--rule); font: 700 15px var(--mono); color: var(--lamp); }
+  .stage.db .num { border-color: var(--lamp); }
+  .stage h3 { margin: 6px 0 0; font: 700 17px/1.2 var(--display); }
+  .stage p { margin: 0; font-size: 13.5px; color: var(--dim); line-height: 1.5; }
+  .stage code { font-size: 11.5px; color: var(--faint); line-height: 1.5; overflow-wrap: anywhere; }
+  .sidecars { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .sidecar { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border: 1px dashed var(--rule); border-radius: 10px; }
+  .sidecar .tag { flex: none; font: 700 11px/1 var(--mono); padding: 6px 8px; border-radius: 4px; background: var(--panel-2); color: var(--lamp); }
+  .sidecar p { margin: 0; font-size: 14px; color: var(--dim); }
+  .sidecar b { color: var(--text); font-weight: 600; }
+
+  /* ---------- ER diagram ---------- */
+  .er-box { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 12px; overflow-x: auto; }
+  .er-box svg { display: block; width: 100%; min-width: 860px; height: auto; }
+  .er-legend { display: flex; flex-wrap: wrap; gap: 18px; font: 12px var(--mono); color: var(--dim); }
+  .er-legend i { display: inline-block; font-style: normal; font-weight: 700; padding: 2px 5px; border-radius: 3px; margin-right: 6px; }
+  .entity { transition: opacity .2s; cursor: default; }
+  svg.focused .entity:not(.on), svg.focused .rel:not(.on) { opacity: .22; }
+  .rel { transition: opacity .2s; }
+
+  /* ---------- Simulator ---------- */
+  .sim { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
+  .controls { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); display: grid; gap: 22px; padding: 22px; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; }
+  .field { display: grid; gap: 10px; border: 0; margin: 0; padding: 0; }
+  .field legend { font: 500 11.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding: 0; margin-bottom: 10px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--ink); border-radius: 10px; border: 1px solid var(--rule); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { text-align: center; padding: 9px 4px; border-radius: 7px; font-size: 13.5px; font-weight: 500; color: var(--dim); cursor: pointer; transition: background .15s, color .15s; }
+  .seg input:checked + label { background: var(--lamp); color: #1a1205; font-weight: 600; }
+  .seg input:focus-visible + label { outline: 2px solid var(--lamp); outline-offset: 2px; }
+  .hint { font-size: 12.5px; color: var(--faint); margin: 0; }
+  .tally { display: grid; gap: 4px; padding-top: 18px; border-top: 1px solid var(--rule); }
+  .tally .big { font: 800 44px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .tally .big small { font-size: 18px; color: var(--faint); font-weight: 500; }
+  .tally p { margin: 0; color: var(--dim); font-size: 13.5px; }
+  .rule-code { font: 12px/1.6 var(--mono); color: var(--dim); background: var(--ink); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+  .rule-code .k { color: var(--lamp); }
+  .rule-code .ok { color: var(--ok); }
+
+  .posters { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .poster { position: relative; aspect-ratio: 2 / 3; max-width: 100%; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; isolation: isolate; border: 1px solid rgba(255,255,255,.06); transition: filter .25s, opacity .25s, transform .25s; }
+  .poster::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--art); }
+  .poster::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, transparent 35%, rgba(5,8,16,.92)); }
+  .poster .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+  .badge { font: 700 12px/1 var(--mono); min-width: 26px; height: 26px; display: grid; place-items: center; border-radius: 5px; color: #fff; padding: 0 5px; }
+  .badge.r18 { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55); }
+  .tier { font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 5px 6px; border-radius: 4px; background: rgba(5,8,16,.6); color: var(--text); }
+  .poster h4 { margin: 0; font: 700 16px/1.15 var(--display); text-wrap: balance; }
+  .poster .meta { font: 11px/1.4 var(--mono); color: rgba(237,240,247,.7); }
+  .poster .state { margin-top: 8px; font: 600 11px/1.3 var(--mono); padding: 6px 7px; border-radius: 5px; background: rgba(5,8,16,.72); }
+  .poster.allowed .state { color: var(--ok); }
+  .poster.pin .state { color: var(--lamp); }
+  .poster.blocked { filter: grayscale(1) brightness(.55); }
+  .poster.blocked .state { color: var(--no); filter: none; }
+  .poster:not(.blocked):hover { transform: translateY(-3px); }
+
+  /* ---------- Modules + endpoints ---------- */
+  .split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: start; }
+  .modules { display: grid; gap: 2px; }
+  .mod { display: grid; grid-template-columns: 96px minmax(0, 1fr) 34px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .mod code { font-weight: 700; color: var(--lamp); font-size: 13.5px; }
+  .mod .desc { font-size: 13.5px; color: var(--dim); min-width: 0; }
+  .mod .bar { height: 4px; border-radius: 2px; background: var(--rule); position: relative; margin-top: 6px; }
+  .mod .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--faint); }
+  .mod .n { font: 500 12px var(--mono); color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+  .subhead { font: 700 18px/1.2 var(--display); margin: 0 0 12px; }
+  .endpoints { display: grid; gap: 0; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+  .ep { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 14px; background: var(--panel); border-top: 1px solid var(--rule); font-size: 13.5px; }
+  .ep:first-child { border-top: 0; }
+  .ep .verb { font: 700 11px/1 var(--mono); text-align: center; padding: 5px 0; border-radius: 4px; }
+  .GET { background: rgba(79,209,181,.14); color: var(--ok); }
+  .POST { background: rgba(255,181,71,.14); color: var(--lamp); }
+  .PUT { background: rgba(138,167,255,.16); color: #9fb4ff; }
+  .DELETE { background: rgba(255,122,122,.14); color: var(--no); }
+  .ep .path { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+  .ep .path span { color: var(--faint); }
+  .ep .guard { font: 500 10.5px/1 var(--mono); padding: 5px 6px; border-radius: 4px; border: 1px solid var(--rule); color: var(--dim); white-space: nowrap; }
+  .ep .guard.pin { border-color: var(--lamp); color: var(--lamp); }
+
+  /* ---------- Tests ---------- */
+  .pyramid { display: grid; gap: 8px; justify-items: center; }
+  .tier-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-radius: 8px; background: var(--panel); border: 1px solid var(--rule); max-width: 100%; }
+  .tier-row b { font: 800 26px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .tier-row span { color: var(--dim); font-size: 14px; }
+  .tier-row.top { border-color: var(--lamp); }
+  .cov { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; color: var(--dim); font-size: 14px; }
+  .cov b { color: var(--text); font: 700 20px var(--display); margin-right: 6px; }
+
+  footer .wrap { padding-block: 36px 56px; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; color: var(--faint); font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .sim, .split { grid-template-columns: minmax(0, 1fr); }
+    .controls { position: static; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats .stat:last-child { grid-column: 1 / -1; }
+    .pipeline { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .pipeline::before { left: 27px; right: auto; top: 28px; bottom: 28px; width: 2px; height: auto; background: linear-gradient(180deg, var(--rule), var(--lamp) 50%, var(--rule)); }
+    .pulse { display: none; }
+    .stage { grid-template-columns: 56px minmax(0, 1fr); column-gap: 16px; padding-bottom: 18px; }
+    .stage .num { grid-row: span 3; }
+    .stage h3 { margin-top: 4px; }
+  }
+  @media (max-width: 520px) {
+    .ep { grid-template-columns: 58px minmax(0, 1fr); }
+    .ep .guard { grid-column: 2; justify-self: start; }
+    .mod { grid-template-columns: 82px minmax(0, 1fr) 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; display: none; }
+    .poster, .entity, .rel, .seg label { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="strip" aria-hidden="true"></div>
+  <div class="wrap">
+    <span class="eyebrow">joaoalbertorsc / streaming-api</span>
+    <h1>Streaming <em>API</em></h1>
+    <p class="lede">Uma API REST que simula um serviço de streaming: um login por conta, perfis com faixa etária, planos que limitam perfis e catálogo, um PIN para conteúdo adulto, histórico de visualização e avaliações. Feita em TDD, do enum ao teste de ponta a ponta.</p>
+    <div class="stack" aria-label="Tecnologias">
+      <span class="chip">Java 21</span><span class="chip">Spring Boot 3.5</span><span class="chip">Spring Security · JWT</span>
+      <span class="chip">Spring Data JPA</span><span class="chip">PostgreSQL 16</span><span class="chip">Flyway</span>
+      <span class="chip">springdoc / Swagger</span><span class="chip">JUnit 5 · Mockito · Testcontainers</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>16</b><span>endpoints REST</span></div>
+      <div class="stat"><b>5</b><span>entidades</span></div>
+      <div class="stat"><b>20</b><span>filmes no catálogo</span></div>
+      <div class="stat"><b>172</b><span>testes automatizados</span></div>
+      <div class="stat"><b>99,5%</b><span>cobertura de linhas</span></div>
+    </div>
+  </div>
+</div>
+
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">Arquitetura</span>
+      <h2>Do token ao banco, em seis passos</h2>
+      <p>Toda requisição autenticada percorre o mesmo caminho. Cada camada tem uma responsabilidade só, e as regras de negócio vivem em classes pequenas que podem ser testadas sem subir o Spring.</p>
+    </div>
+    <div class="pipeline">
+      <span class="pulse" aria-hidden="true"></span>
+      <div class="stage"><span class="num">01</span><h3>Cliente</h3><p>Swagger ou qualquer cliente HTTP, com o token no header.</p><code>Authorization: Bearer …</code></div>
+      <div class="stage"><span class="num">02</span><h3>Filtro JWT</h3><p>Valida assinatura e validade e identifica a conta.</p><code>JwtAuthenticationFilter</code></div>
+      <div class="stage"><span class="num">03</span><h3>Controller</h3><p>Só HTTP: valida o DTO e chama um método de serviço.</p><code>@Valid · records</code></div>
+      <div class="stage"><span class="num">04</span><h3>Service</h3><p>Orquestra um caso de uso dentro de uma transação.</p><code>WatchService · PlanMigrationService</code></div>
+      <div class="stage"><span class="num">05</span><h3>Policies</h3><p>Uma regra de negócio por classe.</p><code>ContentAccessPolicy · ProfileQuotaPolicy · PinPolicy</code></div>
+      <div class="stage db"><span class="num">06</span><h3>PostgreSQL</h3><p>Repositórios Spring Data, schema versionado com Flyway.</p><code>V1 → V7 · índice parcial</code></div>
+    </div>
+    <div class="sidecars">
+      <div class="sidecar"><span class="tag">ERROS</span><p><b>GlobalExceptionHandler</b> transforma exceções de domínio em um <code>ApiError</code> único: 400, 401, 403, 404 ou 409, sempre com mensagem e caminho.</p></div>
+      <div class="sidecar"><span class="tag">03:00</span><p><b>TrashPurgeJob</b> roda todo dia e apaga de vez os perfis que estão há mais de 30 dias na lixeira, junto com histórico e avaliações.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">Modelo de domínio</span>
+      <h2>Uma conta, vários perfis, um histórico por perfil</h2>
+      <p>A conta é o único login. Os perfis vivem dentro dela, e cada visualização gera uma linha nova de histórico, por isso assistir duas vezes aparece duas vezes. Passe o mouse sobre uma entidade para ver só as relações dela.</p>
+    </div>
+    <div class="er-box"><svg id="er" viewBox="0 0 1060 540" role="img" aria-label="Diagrama entidade-relacionamento com Account, Profile, Movie, WatchHistoryEntry e Review"></svg></div>
+    <div class="er-legend">
+      <span><i style="background:rgba(255,181,71,.16);color:var(--lamp)">PK</i>chave primária (UUID)</span>
+      <span><i style="background:rgba(79,209,181,.14);color:var(--ok)">FK</i>chave estrangeira</span>
+      <span><i style="background:var(--panel-2);color:var(--dim)">UQ</i>único</span>
+      <span>── ⟨ um para muitos</span>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">Regra de acesso · simulador</span>
+      <h2>Quem pode assistir o quê</h2>
+      <p>Escolha um plano e um tipo de perfil para ver como o catálogo real do seed (<code>V7__seed_movies.sql</code>) fica para essa combinação. É a mesma regra que a API aplica na consulta ao banco.</p>
+    </div>
+    <div class="sim">
+      <form class="controls" id="sim-controls">
+        <fieldset class="field">
+          <legend>Plano da conta</legend>
+          <div class="seg">
+            <input type="radio" name="plan" id="plan-basic" value="BASIC"><label for="plan-basic">Basic</label>
+            <input type="radio" name="plan" id="plan-standard" value="STANDARD" checked><label for="plan-standard">Standard</label>
+            <input type="radio" name="plan" id="plan-premium" value="PREMIUM"><label for="plan-premium">Premium</label>
+          </div>
+          <p class="hint" id="plan-hint">Até 2 perfis ativos.</p>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Perfil</legend>
+          <div class="seg">
+            <input type="radio" name="age" id="age-child" value="CHILD"><label for="age-child">Criança</label>
+            <input type="radio" name="age" id="age-teen" value="TEEN"><label for="age-teen">Teen</label>
+            <input type="radio" name="age" id="age-adult" value="ADULT" checked><label for="age-adult">Adulto</label>
+          </div>
+          <p class="hint" id="age-hint">Todas as classificações.</p>
+        </fieldset>
+        <div class="tally" aria-live="polite">
+          <span class="big" id="count">0<small> / 20</small></span>
+          <p id="tally-text">filmes liberados</p>
+        </div>
+        <div class="rule-code"><span class="k">plan</span>.allows(movie.minimumPlan)
+  <span class="ok">&amp;&amp;</span> <span class="k">age</span>.allows(movie.classification)
+<span class="k">rating</span> ∈ {16, 18} → exige X-Account-Pin</div>
+      </form>
+      <div class="posters" id="posters"></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">Código e contrato</span>
+      <h2>Pacotes por funcionalidade, 16 endpoints</h2>
+      <p>Cada pacote reúne controller, serviço, entidade, repositório e DTOs do mesmo assunto. Os endpoints de gestão exigem a role <code>SUBSCRIBER</code>; os de uso recebem o <code>profileId</code> e conferem se o perfil é da conta.</p>
+    </div>
+    <div class="split">
+      <div>
+        <p class="subhead">Pacotes · <span class="mono" style="font-size:13px;color:var(--faint)">com.ebac.streaming</span></p>
+        <div class="modules" id="modules"></div>
+      </div>
+      <div>
+        <p class="subhead">Endpoints · <span class="mono" style="font-size:13px;color:var(--faint)">/api/v1</span></p>
+        <div class="endpoints" id="endpoints"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">Qualidade</span>
+      <h2>172 testes, do mais rápido ao mais real</h2>
+      <p>A base são testes unitários sem Spring; no topo, fluxos completos contra um PostgreSQL de verdade, criado e descartado pelo Testcontainers a cada execução.</p>
+    </div>
+    <div class="pyramid">
+      <div class="tier-row top" style="width:min(100%,340px)"><span>Ponta a ponta · PostgreSQL</span><b>5</b></div>
+      <div class="tier-row" style="width:min(100%,500px)"><span>Repositórios · H2 e PostgreSQL</span><b>10</b></div>
+      <div class="tier-row" style="width:min(100%,680px)"><span>Controllers · @WebMvcTest</span><b>53</b></div>
+      <div class="tier-row" style="width:min(100%,860px)"><span>Unitários · domínio, policies e serviços</span><b>104</b></div>
+    </div>
+    <div class="cov"><span><b>99,5%</b>das linhas</span><span><b>98,8%</b>das ramificações</span><span><b>JaCoCo</b>em <code>mvn verify</code></span></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Streaming API · projeto de prática</span>
+    <a class="mono" href="https://github.com/joaoalbertorsc/streaming-api">github.com/joaoalbertorsc/streaming-api</a>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+
+  /* ---------- ER diagram ---------- */
+  const entities = [
+    { id: "account", name: "Account", x: 20, y: 172, w: 200, fields: [
+      ["id", "UUID", "PK"], ["email", "String", "UQ"], ["passwordHash", "BCrypt"], ["pinHash", "BCrypt"], ["plan", "Plan"], ["createdAt", "Instant"]] },
+    { id: "profile", name: "Profile", x: 290, y: 150, w: 220, fields: [
+      ["id", "UUID", "PK"], ["account_id", "UUID", "FK"], ["name", "String"], ["ageCategory", "AgeCategory"], ["owner", "boolean"], ["deletedAt", "Instant?"], ["createdAt", "Instant"]] },
+    { id: "history", name: "WatchHistoryEntry", x: 580, y: 24, w: 220, fields: [
+      ["id", "UUID", "PK"], ["profile_id", "UUID", "FK"], ["movie_id", "UUID", "FK"], ["watchedAt", "Instant"]] },
+    { id: "review", name: "Review", x: 580, y: 314, w: 220, fields: [
+      ["id", "UUID", "PK"], ["profile_id", "UUID", "FK"], ["movie_id", "UUID", "FK"], ["stars", "1–5"], ["comment", "String?"], ["createdAt", "Instant"], ["updatedAt", "Instant"]] },
+    { id: "movie", name: "Movie", x: 850, y: 120, w: 190, fields: [
+      ["id", "UUID", "PK"], ["title", "String"], ["genre", "String"], ["synopsis", "String"], ["releaseYear", "int"], ["castMembers", "String"], ["durationMinutes", "int"], ["classification", "Rating"], ["minimumPlan", "Plan"]] },
+  ];
+  const HEAD = 38, ROW = 23, PAD = 10;
+  const box = {};
+  entities.forEach(e => { e.h = HEAD + e.fields.length * ROW + PAD; box[e.id] = e; });
+
+  // [from(one), to(many), fromSide, toSide, label, fromRowY, toRowY]
+  const rels = [
+    ["account", "profile", "r", "l", "1 : N", 0.5, 0.5],
+    ["profile", "history", "r", "l", "1 : N", 0.32, 0.5],
+    ["profile", "review", "r", "l", "1 : N", 0.72, 0.42],
+    ["movie", "history", "l", "r", "1 : N", 0.22, 0.5],
+    ["movie", "review", "l", "r", "1 : N", 0.78, 0.42],
+  ];
+
+  const svg = document.getElementById("er");
+  const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); (parent || svg).appendChild(n); return n; };
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const C = { panel: css("--panel-2"), ink: css("--ink"), rule: css("--rule"), text: css("--text"), dim: css("--dim"), faint: css("--faint"), lamp: css("--lamp"), ok: css("--ok") };
+
+  const point = (e, side, frac) => ({ x: side === "r" ? e.x + e.w : e.x, y: e.y + e.h * frac });
+
+  rels.forEach(([a, b, sa, sb, label, fa, fb]) => {
+    const g = el("g", { class: "rel", "data-a": a, "data-b": b });
+    const p1 = point(box[a], sa, fa), p2 = point(box[b], sb, fb);
+    const mx = (p1.x + p2.x) / 2;
+    el("path", { d: `M${p1.x} ${p1.y} C${mx} ${p1.y} ${mx} ${p2.y} ${p2.x} ${p2.y}`, fill: "none", stroke: C.faint, "stroke-width": 1.6 }, g);
+    // "one" bar at the source
+    const dir1 = sa === "r" ? 1 : -1;
+    el("line", { x1: p1.x + dir1 * 10, y1: p1.y - 7, x2: p1.x + dir1 * 10, y2: p1.y + 7, stroke: C.lamp, "stroke-width": 2 }, g);
+    // crow's foot at the "many" end
+    const dir2 = sb === "l" ? -1 : 1;
+    const bx = p2.x + dir2 * 14;
+    [-8, 0, 8].forEach(dy => el("line", { x1: bx, y1: p2.y, x2: p2.x, y2: p2.y + dy, stroke: C.ok, "stroke-width": 1.8 }, g));
+    const lx = mx, ly = (p1.y + p2.y) / 2;
+    el("rect", { x: lx - 22, y: ly - 10, width: 44, height: 20, rx: 4, fill: C.ink, stroke: C.rule }, g);
+    const t = el("text", { x: lx, y: ly + 4, "text-anchor": "middle", fill: C.dim, "font-family": "JetBrains Mono, monospace", "font-size": 10.5 }, g);
+    t.textContent = label;
+  });
+
+  entities.forEach(e => {
+    const g = el("g", { class: "entity", "data-id": e.id, tabindex: 0 });
+    el("rect", { x: e.x, y: e.y, width: e.w, height: e.h, rx: 10, fill: C.panel, stroke: C.rule, "stroke-width": 1.2 }, g);
+    el("rect", { x: e.x, y: e.y, width: e.w, height: HEAD, rx: 10, fill: C.ink }, g);
+    el("rect", { x: e.x, y: e.y + HEAD - 10, width: e.w, height: 10, fill: C.ink }, g);
+    el("line", { x1: e.x, y1: e.y + HEAD, x2: e.x + e.w, y2: e.y + HEAD, stroke: C.rule }, g);
+    const title = el("text", { x: e.x + 14, y: e.y + 25, fill: C.text, "font-family": "Bricolage Grotesque, sans-serif", "font-weight": 700, "font-size": 16 }, g);
+    title.textContent = e.name;
+    e.fields.forEach(([name, type, key], i) => {
+      const y = e.y + HEAD + 18 + i * ROW;
+      let x = e.x + 14;
+      if (key) {
+        const color = key === "PK" ? C.lamp : key === "FK" ? C.ok : C.dim;
+        el("rect", { x, y: y - 12, width: 22, height: 15, rx: 3, fill: color, "fill-opacity": key === "UQ" ? .12 : .16 }, g);
+        const k = el("text", { x: x + 11, y: y - 1.5, "text-anchor": "middle", fill: color, "font-family": "JetBrains Mono, monospace", "font-size": 8.5, "font-weight": 700 }, g);
+        k.textContent = key;
+        x += 28;
+      }
+      const n = el("text", { x, y, fill: key === "PK" ? C.text : C.dim, "font-family": "JetBrains Mono, monospace", "font-size": 11.5 }, g);
+      n.textContent = name;
+      const t = el("text", { x: e.x + e.w - 12, y, "text-anchor": "end", fill: C.faint, "font-family": "JetBrains Mono, monospace", "font-size": 10.5 }, g);
+      t.textContent = type;
+    });
+    const focus = on => {
+      svg.classList.toggle("focused", on);
+      svg.querySelectorAll(".entity, .rel").forEach(n => n.classList.remove("on"));
+      if (!on) return;
+      g.classList.add("on");
+      svg.querySelectorAll(".rel").forEach(r => {
+        if (r.dataset.a === e.id || r.dataset.b === e.id) {
+          r.classList.add("on");
+          svg.querySelector(`.entity[data-id="${r.dataset.a === e.id ? r.dataset.b : r.dataset.a}"]`).classList.add("on");
+        }
+      });
+    };
+    g.addEventListener("mouseenter", () => focus(true));
+    g.addEventListener("mouseleave", () => focus(false));
+    g.addEventListener("focus", () => focus(true));
+    g.addEventListener("blur", () => focus(false));
+  });
+
+  /* ---------- Catalog simulator (real seed data from V7__seed_movies.sql) ---------- */
+  const movies = [
+    ["The Quiet Orchard", "Drama", 2021, 104, "L", "BASIC"], ["Pepper and Finn", "Animação", 2019, 88, "L", "BASIC"],
+    ["Northbound", "Aventura", 2020, 96, "L", "BASIC"], ["The Cartographer's Daughter", "Família", 2022, 99, "TEN", "BASIC"],
+    ["Static Lines", "Ficção científica", 2018, 112, "TEN", "STANDARD"], ["Harbor Lights", "Drama", 2017, 118, "TWELVE", "STANDARD"],
+    ["The Long Table", "Comédia", 2023, 101, "TWELVE", "BASIC"], ["Switchback", "Suspense", 2021, 106, "FOURTEEN", "STANDARD"],
+    ["The Understudy", "Drama", 2016, 109, "FOURTEEN", "BASIC"], ["Glass Houses", "Mistério", 2020, 114, "FOURTEEN", "STANDARD"],
+    ["Combat Season", "Ação", 2019, 121, "SIXTEEN", "STANDARD"], ["Afterparty", "Suspense", 2022, 103, "SIXTEEN", "PREMIUM"],
+    ["Red Ledger", "Crime", 2018, 116, "SIXTEEN", "STANDARD"], ["The Negotiator's Room", "Suspense", 2021, 110, "SIXTEEN", "PREMIUM"],
+    ["Nightshift at the Aurelia", "Terror", 2023, 97, "EIGHTEEN", "PREMIUM"], ["Blood and Ledger Lines", "Crime", 2020, 124, "EIGHTEEN", "PREMIUM"],
+    ["The Last Toll Road", "Drama", 2017, 108, "EIGHTEEN", "STANDARD"], ["Severed Signal", "Ficção científica", 2022, 119, "EIGHTEEN", "PREMIUM"],
+    ["Paper Lanterns", "Romance", 2019, 102, "TWELVE", "BASIC"], ["The Understudy's Encore", "Drama", 2024, 107, "TEN", "PREMIUM"],
+  ];
+  const TIER = { BASIC: 1, STANDARD: 2, PREMIUM: 3 };
+  const PLAN_LABEL = { BASIC: "Basic", STANDARD: "Standard", PREMIUM: "Premium" };
+  const MAX_PROFILES = { BASIC: 1, STANDARD: 2, PREMIUM: 4 };
+  const RATING = { L: ["L", 0], TEN: ["10", 10], TWELVE: ["12", 12], FOURTEEN: ["14", 14], SIXTEEN: ["16", 16], EIGHTEEN: ["18", 18] };
+  const AGE_MAX = { CHILD: 0, TEEN: 14, ADULT: 18 };
+  const AGE_HINT = { CHILD: "Só classificação livre (L).", TEEN: "Até 14 anos.", ADULT: "Todas as classificações." };
+
+  const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const art = title => {
+    const h = hash(title), a = h % 360, b = (a + 40 + (h >> 8) % 90) % 360, ang = (h >> 4) % 180;
+    return `radial-gradient(circle at ${20 + h % 60}% ${15 + (h >> 3) % 40}%, hsla(${b},80%,62%,.55), transparent 55%),
+            linear-gradient(${ang}deg, hsl(${a},55%,22%), hsl(${b},60%,12%))`;
+  };
+
+  const grid = document.getElementById("posters");
+  const cards = movies.map(([title, genre, year, mins, rating, plan]) => {
+    const card = document.createElement("article");
+    card.className = "poster";
+    card.style.setProperty("--art", art(title));
+    const [r] = RATING[rating];
+    card.innerHTML = `
+      <div class="top">
+        <span class="badge ${r === "18" ? "r18" : ""}" style="background:var(--r-${r})" title="Classificação ${r}">${r}</span>
+        <span class="tier">${PLAN_LABEL[plan]}</span>
+      </div>
+      <div>
+        <h4></h4>
+        <div class="meta">${genre} · ${year} · ${mins} min</div>
+        <div class="state"></div>
+      </div>`;
+    card.querySelector("h4").textContent = title;
+    grid.appendChild(card);
+    return { card, rating, plan };
+  });
+
+  const form = document.getElementById("sim-controls");
+  const update = () => {
+    const plan = form.plan.value, age = form.age.value;
+    let allowed = 0, pin = 0;
+    cards.forEach(({ card, rating, plan: minPlan }) => {
+      const [label, minAge] = RATING[rating];
+      const planOk = TIER[plan] >= TIER[minPlan];
+      const ageOk = minAge <= AGE_MAX[age];
+      const state = card.querySelector(".state");
+      card.classList.remove("allowed", "pin", "blocked");
+      if (planOk && ageOk) {
+        allowed++;
+        if (minAge >= 16) { pin++; card.classList.add("pin"); state.textContent = "Liberado · pede PIN"; }
+        else { card.classList.add("allowed"); state.textContent = "Liberado"; }
+      } else {
+        card.classList.add("blocked");
+        state.textContent = !planOk ? `Requer plano ${PLAN_LABEL[minPlan]}` : `Classificação ${label} bloqueada`;
+      }
+    });
+    document.getElementById("count").innerHTML = `${allowed}<small> / 20</small>`;
+    document.getElementById("tally-text").textContent =
+      `filmes liberados${pin ? ` · ${pin} pedem o PIN da conta` : ""}`;
+    document.getElementById("plan-hint").textContent =
+      `Até ${MAX_PROFILES[plan]} perfi${MAX_PROFILES[plan] > 1 ? "s ativos" : "l ativo"}.`;
+    document.getElementById("age-hint").textContent = AGE_HINT[age];
+  };
+  form.addEventListener("change", update);
+  form.addEventListener("submit", e => e.preventDefault());
+  update();
+
+  /* ---------- Modules and endpoints ---------- */
+  const modules = [
+    ["auth", "Cadastro, login e JWT", 11], ["profile", "Perfis, lixeira e limpeza", 10], ["watch", "Assistir, PIN e histórico", 10],
+    ["plan", "Planos, cota e migração", 9], ["movie", "Catálogo filtrado", 8], ["review", "Avaliações de 1 a 5", 7],
+    ["account", "Conta do assinante", 2], ["config", "Segurança e Swagger", 2], ["exception", "Erros e ApiError", 16],
+  ].sort((a, b) => b[2] - a[2]);
+  const maxN = modules[0][2];
+  document.getElementById("modules").innerHTML = modules.map(([pkg, desc, n]) => `
+    <div class="mod"><code>${pkg}</code>
+      <div class="desc">${desc}<div class="bar"><i style="width:${(n / maxN * 100).toFixed(0)}%"></i></div></div>
+      <span class="n">${n}</span></div>`).join("");
+
+  const eps = [
+    ["POST", "/auth/register", "público"], ["POST", "/auth/login", "público"],
+    ["POST", "/profiles", "SUBSCRIBER"], ["GET", "/profiles", "SUBSCRIBER"], ["DELETE", "/profiles/{id}", "SUBSCRIBER"],
+    ["GET", "/profiles/trash", "SUBSCRIBER"], ["POST", "/profiles/{id}/restore", "SUBSCRIBER"],
+    ["GET", "/plan/migration-preview", "SUBSCRIBER"], ["POST", "/plan/migration", "SUBSCRIBER"],
+    ["GET", "/movies<span>?profileId</span>", "perfil"], ["GET", "/movies/{id}<span>?profileId</span>", "perfil"],
+    ["POST", "/watch<span>?profileId&amp;movieId</span>", "PIN 16/18"], ["GET", "/history<span>?profileId</span>", "perfil"],
+    ["POST", "/reviews<span>?profileId</span>", "perfil"], ["PUT", "/reviews/{id}<span>?profileId</span>", "perfil"],
+    ["GET", "/reviews<span>?profileId</span>", "perfil"],
+  ];
+  document.getElementById("endpoints").innerHTML = eps.map(([verb, path, guard]) => `
+    <div class="ep"><span class="verb ${verb}">${verb}</span><span class="path">${path}</span>
+      <span class="guard ${guard.startsWith("PIN") ? "pin" : ""}">${guard}</span></div>`).join("");
+})();
+</script>
+
+</body>
+</html>

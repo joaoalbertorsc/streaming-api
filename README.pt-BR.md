@@ -2,9 +2,36 @@
 
 [🇺🇸 English](README.md) | 🇧🇷 Português (Brasil)
 
+**[Visão geral da arquitetura →](https://joaoalbertorsc.github.io/streaming-api/)** fluxo de uma requisição, modelo de domínio, simulador interativo do catálogo, endpoints e testes.
+
 Projeto de prática: simulação de uma API de streaming (contas, perfis, planos, catálogo filtrado
 por idade e plano, histórico de visualização e avaliações). Veja o `streaming-api-plan.md` para o
 modelo de domínio completo, a arquitetura, o contrato da API e o checklist de TDD.
+
+## Arquitetura
+
+Aplicação Spring Boot organizada por funcionalidade. Os controllers só cuidam de HTTP, cada serviço orquestra um caso de uso, e cada regra de negócio fica numa classe de política pequena.
+
+```mermaid
+flowchart LR
+    C([Cliente / Swagger]) -->|Bearer JWT| F[Filtro JWT]
+    F --> CT[Controllers]
+    CT --> S[Services]
+    S --> P[Policies<br/>acesso · cota · PIN · migração]
+    S --> R[Repositories]
+    R --> DB[(PostgreSQL<br/>Flyway)]
+    J[TrashPurgeJob<br/>diário 03:00] --> R
+    CT -.-> E[GlobalExceptionHandler<br/>ApiError]
+```
+
+```mermaid
+erDiagram
+    ACCOUNT ||--|{ PROFILE : possui
+    PROFILE ||--o{ WATCH_HISTORY_ENTRY : assiste
+    MOVIE ||--o{ WATCH_HISTORY_ENTRY : "aparece em"
+    PROFILE ||--o{ REVIEW : avalia
+    MOVIE ||--o{ REVIEW : recebe
+```
 
 ## Requisitos
 
