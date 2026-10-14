@@ -131,4 +131,19 @@ class ProfileRepositoryTest extends PostgresTestSupport {
 
         assertThat(result).extracting(Profile::getId).containsExactly(expired.getId());
     }
+
+    @Test
+    void findsTrashedProfilesOfTheAccountTrashedAfterTheCutoff() {
+        Account account = persistAccount();
+        persistTrashedDaysAgo(account, "Expired", 31);
+        Profile recent = persistTrashedDaysAgo(account, "Recent", 5);
+        entityManager.persist(Profile.create(entityManager.find(Account.class, account.getId()), "Active",
+                AgeCategory.ADULT));
+        entityManager.flush();
+
+        List<Profile> result = profileRepository.findByAccountAndDeletedAtAfter(
+                account, Instant.now().minus(30, ChronoUnit.DAYS));
+
+        assertThat(result).extracting(Profile::getId).containsExactly(recent.getId());
+    }
 }

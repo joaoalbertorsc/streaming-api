@@ -8,6 +8,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,6 +18,9 @@ import java.util.UUID;
 @EqualsAndHashCode(of = "id")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Profile {
+
+    /** How long a trashed profile can still be listed and restored before it is purged. */
+    public static final Duration TRASH_RETENTION = Duration.ofDays(30);
 
     @Id
     private UUID id;
@@ -60,6 +64,10 @@ public class Profile {
 
     public boolean isActive() {
         return deletedAt == null;
+    }
+
+    public boolean isTrashExpired() {
+        return deletedAt != null && deletedAt.isBefore(Instant.now().minus(TRASH_RETENTION));
     }
 
     public void moveToTrash() {

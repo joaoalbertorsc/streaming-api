@@ -9,6 +9,7 @@ import com.ebac.streaming.plan.ProfileQuotaPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +45,10 @@ public class ProfileService {
     @Transactional
     public Profile restore(Account account, UUID profileId) {
         Profile profile = findOwned(account, profileId);
+        if (profile.isTrashExpired()) {
+            // Past the retention window the profile is due for purging, so it no longer exists for the API.
+            throw new ProfileNotFoundException("Profile not found.");
+        }
 
         if (!quotaPolicy.canCreateNewProfile(account)) {
             throw new ProfileQuotaExceededException(
@@ -63,7 +68,7 @@ public class ProfileService {
     }
 
     public List<Profile> listTrashed(Account account) {
-        return profileRepository.findByAccountAndDeletedAtIsNotNull(account);
+        return profileRepository.findByAccountAndDeletedAtAfter(account, Instant.now().minus(Profile.TRASH_RETENTION));
     }
 
     private Profile findOwned(Account account, UUID profileId) {

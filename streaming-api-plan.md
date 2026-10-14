@@ -297,5 +297,8 @@ Decisions taken after this plan was written. Where they differ from earlier sect
   come from environment variables, with a git-ignored `.env` imported via `spring.config.import`. The
   JWT secret has no default in `application.yml`. Tests get theirs from
   `src/test/resources/application.properties`.
+- **Trash retention is enforced on read**, not only by the nightly purge: `GET /profiles/trash` lists only
+  profiles trashed less than `Profile.TRASH_RETENTION` (30 days) ago, and restoring an older one returns
+  404 as if it were already purged.
 - **PIN change endpoint** (planned as "requires the current PIN") is not implemented; it moves to
   future improvements.

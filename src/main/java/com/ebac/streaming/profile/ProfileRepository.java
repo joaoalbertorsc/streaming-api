@@ -20,5 +20,5 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
 
     List<Profile> findByDeletedAtIsNotNullAndDeletedAtBefore(Instant cutoff);
 
-    List<Profile> findByAccountAndDeletedAtIsNotNull(Account account);
+    List<Profile> findByAccountAndDeletedAtAfter(Account account, Instant cutoff);
 }

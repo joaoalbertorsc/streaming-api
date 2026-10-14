@@ -3,6 +3,9 @@ package com.ebac.streaming.profile;
 import com.ebac.streaming.account.Account;
 import com.ebac.streaming.exception.IllegalProfileOperationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,5 +52,24 @@ class ProfileTest {
         profile.restore();
 
         assertThat(profile.isActive()).isTrue();
+    }
+
+    @Test
+    void trashIsExpiredOnlyAfterTheRetentionPeriod() {
+        Account account = Account.register("user@example.com", "hash", "pin");
+        Profile profile = Profile.create(account, "Kids", AgeCategory.CHILD);
+        profile.moveToTrash();
+        assertThat(profile.isTrashExpired()).isFalse();
+
+        ReflectionTestUtils.setField(profile, "deletedAt",
+                Instant.now().minus(Profile.TRASH_RETENTION).minusSeconds(60));
+        assertThat(profile.isTrashExpired()).isTrue();
+    }
+
+    @Test
+    void activeProfileIsNeverTrashExpired() {
+        Account account = Account.register("user@example.com", "hash", "pin");
+
+        assertThat(Profile.create(account, "Kids", AgeCategory.CHILD).isTrashExpired()).isFalse();
     }
 }

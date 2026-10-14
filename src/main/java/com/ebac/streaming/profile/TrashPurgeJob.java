@@ -7,13 +7,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Component
 public class TrashPurgeJob {
-
-    private static final int RETENTION_DAYS = 30;
 
     private final ProfileRepository profileRepository;
     private final WatchHistoryRepository watchHistoryRepository;
@@ -29,7 +26,7 @@ public class TrashPurgeJob {
     @Scheduled(cron = "0 0 3 * * *") // every day at 03:00
     @Transactional
     public void purgeExpiredProfiles() {
-        Instant cutoff = Instant.now().minus(RETENTION_DAYS, ChronoUnit.DAYS);
+        Instant cutoff = Instant.now().minus(Profile.TRASH_RETENTION);
         List<Profile> expiredProfiles = profileRepository.findByDeletedAtIsNotNullAndDeletedAtBefore(cutoff);
 
         for (Profile profile : expiredProfiles) {

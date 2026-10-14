@@ -9,16 +9,22 @@ import com.ebac.streaming.plan.Plan;
 import com.ebac.streaming.plan.ProfileQuotaPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ProfileServiceTest {
@@ -140,14 +146,31 @@ class ProfileServiceTest {
     }
 
     @Test
-    void listTrashedReturnsOnlyTrashedProfiles() {
+    void listTrashedOnlyAsksForProfilesStillWithinTheRetentionWindow() {
         Profile trashed = Profile.create(account, "Kids", AgeCategory.CHILD);
         trashed.moveToTrash();
-        when(profileRepository.findByAccountAndDeletedAtIsNotNull(account))
+        when(profileRepository.findByAccountAndDeletedAtAfter(eq(account), any(Instant.class)))
                 .thenReturn(List.of(trashed));
 
         List<Profile> result = profileService.listTrashed(account);
 
         assertThat(result).containsExactly(trashed);
+        ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
+        verify(profileRepository).findByAccountAndDeletedAtAfter(eq(account), cutoff.capture());
+        assertThat(cutoff.getValue())
+                .isCloseTo(Instant.now().minus(Profile.TRASH_RETENTION), within(5, ChronoUnit.SECONDS));
+    }
+
+    @Test
+    void restoreTreatsAProfileTrashedLongerThanTheRetentionPeriodAsGone() {
+        Profile expired = Profile.create(account, "Kids", AgeCategory.CHILD);
+        expired.moveToTrash();
+        ReflectionTestUtils.setField(expired, "deletedAt", Instant.now().minus(31, ChronoUnit.DAYS));
+        when(profileRepository.findByIdAndAccount(expired.getId(), account)).thenReturn(Optional.of(expired));
+
+        assertThatThrownBy(() -> profileService.restore(account, expired.getId()))
+                .isInstanceOf(ProfileNotFoundException.class);
+        assertThat(expired.isActive()).isFalse();
+        verifyNoInteractions(quotaPolicy);
     }
 }
