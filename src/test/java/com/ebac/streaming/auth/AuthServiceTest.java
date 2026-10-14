@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -105,5 +106,19 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login("user@example.com", "wrongPassword"))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    void loginFailuresDoNotRevealWhetherTheEmailExists() {
+        Account account = Account.register("user@example.com", "hashedPassword", "hashedPin");
+        when(accountRepository.findByEmail("user@example.com")).thenReturn(Optional.of(account));
+        when(accountRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.matches(anyString(), eq("hashedPassword"))).thenReturn(false);
+
+        Throwable unknownEmail = catchThrowable(() -> authService.login("missing@example.com", "password123"));
+        Throwable wrongPassword = catchThrowable(() -> authService.login("user@example.com", "wrongPassword"));
+
+        assertThat(unknownEmail).isExactlyInstanceOf(wrongPassword.getClass());
+        assertThat(unknownEmail).hasMessage(wrongPassword.getMessage());
     }
 }
