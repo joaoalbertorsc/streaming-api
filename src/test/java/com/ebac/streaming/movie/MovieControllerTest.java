@@ -137,4 +137,19 @@ class MovieControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void profileScopedEndpointsOnlyRequireAuthenticationNotTheSubscriberRole() throws Exception {
+        var userWithoutRole = new org.springframework.security.core.userdetails.User(
+                account.getId().toString(), "unused", List.of(() -> "ROLE_OTHER"));
+        when(accountUserDetailsService.loadUserByUsername(account.getId().toString()))
+                .thenReturn(userWithoutRole);
+        when(profileAccessService.getActiveOwnedProfile(account, profile.getId())).thenReturn(profile);
+        when(movieService.listAllowed(account.getPlan(), profile.getAgeCategory())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/movies")
+                        .param("profileId", profile.getId().toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
 }

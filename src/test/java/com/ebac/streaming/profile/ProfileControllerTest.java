@@ -204,4 +204,24 @@ class ProfileControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
+
+    private void authenticateWithoutSubscriberRole() {
+        var userWithoutRole = new org.springframework.security.core.userdetails.User(
+                account.getId().toString(), "unused", List.of(() -> "ROLE_OTHER"));
+        when(accountUserDetailsService.loadUserByUsername(account.getId().toString()))
+                .thenReturn(userWithoutRole);
+    }
+
+    @Test
+    void profileManagementRequiresSubscriberRole() throws Exception {
+        authenticateWithoutSubscriberRole();
+
+        mockMvc.perform(get("/api/v1/profiles")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+        mockMvc.perform(delete("/api/v1/profiles/" + UUID.randomUUID())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
 }

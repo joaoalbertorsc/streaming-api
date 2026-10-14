@@ -114,4 +114,28 @@ class PlanMigrationControllerTest {
                         .content(invalidJson))
                 .andExpect(status().isBadRequest());
     }
+
+    private void authenticateWithoutSubscriberRole() {
+        var userWithoutRole = new org.springframework.security.core.userdetails.User(
+                account.getId().toString(), "unused", List.of(() -> "ROLE_OTHER"));
+        when(accountUserDetailsService.loadUserByUsername(account.getId().toString()))
+                .thenReturn(userWithoutRole);
+    }
+
+    @Test
+    void planMigrationRequiresSubscriberRole() throws Exception {
+        authenticateWithoutSubscriberRole();
+
+        mockMvc.perform(get("/api/v1/plan/migration-preview")
+                        .param("targetPlan", "STANDARD")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/plan/migration")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"targetPlan":"STANDARD","profileIdsToRemove":[]}
+                                """))
+                .andExpect(status().isForbidden());
+    }
 }
