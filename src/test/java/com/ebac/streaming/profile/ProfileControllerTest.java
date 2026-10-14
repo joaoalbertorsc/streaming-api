@@ -9,6 +9,9 @@ import com.ebac.streaming.auth.JwtService;
 import com.ebac.streaming.config.SecurityConfig;
 import com.ebac.streaming.exception.ProfileQuotaExceededException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ebac.streaming.exception.AccountNotFoundException;
+import com.ebac.streaming.exception.IllegalProfileOperationException;
+import com.ebac.streaming.exception.ProfileNameConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -149,5 +153,55 @@ class ProfileControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Kids"));
+    }
+
+    @Test
+    void deleteOwnerProfileReturns400WithTheApiErrorBody() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        doThrow(new IllegalProfileOperationException("The owner profile cannot be deleted."))
+                .when(profileService).delete(account, ownerId);
+
+        mockMvc.perform(delete("/api/v1/profiles/" + ownerId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("The owner profile cannot be deleted."))
+                .andExpect(jsonPath("$.path").value("/api/v1/profiles/" + ownerId))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void restoreMapsQuotaExceededTo409() throws Exception {
+        UUID profileId = UUID.randomUUID();
+        when(profileService.restore(account, profileId))
+                .thenThrow(new ProfileQuotaExceededException("Quota exceeded."));
+
+        mockMvc.perform(post("/api/v1/profiles/" + profileId + "/restore")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Quota exceeded."));
+    }
+
+    @Test
+    void restoreMapsNameConflictTo409() throws Exception {
+        UUID profileId = UUID.randomUUID();
+        when(profileService.restore(account, profileId))
+                .thenThrow(new ProfileNameConflictException("An active profile with this name already exists."));
+
+        mockMvc.perform(post("/api/v1/profiles/" + profileId + "/restore")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("An active profile with this name already exists."));
+    }
+
+    @Test
+    void validTokenForAnAccountThatNoLongerExistsReturns401() throws Exception {
+        when(currentAccountProvider.getCurrentAccount())
+                .thenThrow(new AccountNotFoundException("Account not found."));
+
+        mockMvc.perform(get("/api/v1/profiles")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
     }
 }

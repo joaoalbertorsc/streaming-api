@@ -17,6 +17,8 @@ import com.ebac.streaming.plan.Plan;
 import com.ebac.streaming.profile.Profile;
 import com.ebac.streaming.profile.ProfileAccessService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ebac.streaming.exception.ProfileNotFoundException;
+import com.ebac.streaming.exception.ReviewAlreadyExistsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -183,5 +185,46 @@ class ReviewControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].stars").value(4));
+    }
+
+    @Test
+    void createMapsDuplicateReviewTo409() throws Exception {
+        when(movieRepository.findById(movie.getId())).thenReturn(Optional.of(movie));
+        when(reviewService.create(profile, movie, 5, "Great!"))
+                .thenThrow(new ReviewAlreadyExistsException("Already reviewed."));
+
+        mockMvc.perform(post("/api/v1/reviews")
+                        .param("profileId", profile.getId().toString())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new ReviewRequest(movie.getId(), 5, "Great!"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Already reviewed."));
+    }
+
+    @Test
+    void createWithForeignProfileReturns404() throws Exception {
+        UUID foreignProfileId = UUID.randomUUID();
+        when(profileAccessService.getActiveOwnedProfile(account, foreignProfileId))
+                .thenThrow(new ProfileNotFoundException("Profile not found."));
+
+        mockMvc.perform(post("/api/v1/reviews")
+                        .param("profileId", foreignProfileId.toString())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new ReviewRequest(movie.getId(), 5, null))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listWithForeignProfileReturns404() throws Exception {
+        UUID foreignProfileId = UUID.randomUUID();
+        when(profileAccessService.getActiveOwnedProfile(account, foreignProfileId))
+                .thenThrow(new ProfileNotFoundException("Profile not found."));
+
+        mockMvc.perform(get("/api/v1/reviews")
+                        .param("profileId", foreignProfileId.toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
     }
 }

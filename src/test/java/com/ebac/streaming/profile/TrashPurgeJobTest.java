@@ -4,6 +4,7 @@ import com.ebac.streaming.account.Account;
 import com.ebac.streaming.review.ReviewRepository;
 import com.ebac.streaming.watch.WatchHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.InOrder;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -62,9 +63,11 @@ class TrashPurgeJobTest {
 
         trashPurgeJob.purgeExpiredProfiles();
 
-        verify(watchHistoryRepository).deleteByProfile(oldTrashed);
-        verify(reviewRepository).deleteByProfile(oldTrashed);
-        verify(profileRepository).delete(oldTrashed);
+        // History and reviews reference the profile by foreign key, so they must go first.
+        InOrder inOrder = inOrder(watchHistoryRepository, reviewRepository, profileRepository);
+        inOrder.verify(watchHistoryRepository).deleteByProfile(oldTrashed);
+        inOrder.verify(reviewRepository).deleteByProfile(oldTrashed);
+        inOrder.verify(profileRepository).delete(oldTrashed);
     }
 
     @Test
